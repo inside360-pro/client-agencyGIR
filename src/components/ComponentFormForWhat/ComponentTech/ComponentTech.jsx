@@ -2,6 +2,7 @@ import styles from './style.module.scss';
 import deleteSVG from '/delete.svg';
 
 import useDataRequestStore from '../../../store/DataRequestStore';
+import { toYyyyMmDd } from '../../../utils/toYyyyMmDd';
 import {
   CustomInput,
   AddMoreBtn,
@@ -12,7 +13,7 @@ import {
 
 const STATUS_CHECKBOXES = [
   {
-    value: 'In working',
+    value: 'In working|',
     label: 'В работе',
     id: 'checkboxinworking',
   },
@@ -36,7 +37,7 @@ const STATUS_CHECKBOXES = [
 const DeleteDateItem = ({ id }) => {
   const { data } = useDataRequestStore();
   const userId = data[0]?.documentId;
-  const dayDataDetails = data[0]?.DayDataDetails;
+  const dayDataDetails = data[0]?.DayDataTechnicaDetails || [];
 
   const url = `http://89.111.152.254:1337/api/techicas/${userId}`;
 
@@ -45,56 +46,21 @@ const DeleteDateItem = ({ id }) => {
 
     if (!window.confirm('Вы точно хотите удалить рабочую смену?')) return;
 
-    // Создаем копию исходных данных
-    const updatedDayDataDetails = [...dayDataDetails];
-
-    // Находим и удаляем элемент с соответствующим id
-    for (let i = 0; i < updatedDayDataDetails.length; i++) {
-      const day = updatedDayDataDetails[i];
-      // Проверяем DayInfo
-      if (day.DayInfo && day.DayInfo.id === id) {
-        // Если удаляем DayInfo, оставляем структуру с null
-        updatedDayDataDetails[i] = {
-          ...day,
-          DayInfo: null,
-          NightInfo: day.NightInfo || null,
+    if (!userId) return;
+    const targetId = String(id);
+    const cleanedDayDataDetails = dayDataDetails
+      .filter((row) => String(row?.id) !== targetId)
+      .map((row) => {
+        const cleaned = {
+          DayDataTechnicaDetails: row?.DayDataTechnicaDetails,
+          Day: Boolean(row?.Day),
+          Nigth: Boolean(row?.Nigth),
+          statusTech: row?.statusTech,
+          note: row?.note,
         };
-        break;
-      }
-
-      // Проверяем NightInfo
-      if (day.NightInfo && day.NightInfo.id === id) {
-        // Если удаляем NightInfo, оставляем структуру с null
-        updatedDayDataDetails[i] = {
-          ...day,
-          DayInfo: day.DayInfo || null,
-          NightInfo: null,
-        };
-        break;
-      }
-    }
-
-    // Фильтруем полностью пустые записи (где и DayInfo и NightInfo null)
-    const cleanedDayDataDetails = updatedDayDataDetails
-      .filter((day) => day.DayInfo !== null || day.NightInfo !== null)
-      .map((day) => ({
-        DayInfo: day.DayInfo
-          ? {
-              date: day.DayInfo.date,
-              day: day.DayInfo.day,
-              note: day.DayInfo.note,
-              statusTech: day.DayInfo.statusTech,
-            }
-          : null,
-        NightInfo: day.NightInfo
-          ? {
-              night: day.NightInfo.night,
-              date: day.NightInfo.date,
-              note: day.NightInfo.note,
-              statusTech: day.NightInfo.statusTech,
-            }
-          : null,
-      }));
+        Object.keys(cleaned).forEach((k) => cleaned[k] === undefined && delete cleaned[k]);
+        return cleaned;
+      });
 
     try {
       const response = await fetch(url, {
@@ -103,7 +69,7 @@ const DeleteDateItem = ({ id }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          data: { DayDataDetails: cleanedDayDataDetails },
+          data: { DayDataTechnicaDetails: cleanedDayDataDetails },
         }),
       });
 
@@ -134,11 +100,36 @@ export default function ComponentTech({
   errors,
   shiftType,
   popupId,
+  dateSearch,
 }) {
   const { data } = useDataRequestStore();
+
+  const pickedYmd = dateSearch ? String(dateSearch).split('T')[0] : '';
+  const withIdx = items.map((item, idx) => ({ item, idx }));
+  const visibleRows = pickedYmd
+    ? withIdx.filter(({ item }) => {
+        const raw =
+          item?.DayDataTechnicaDetails || item?.date;
+        return toYyyyMmDd(raw) === pickedYmd;
+      })
+    : withIdx;
+
+  const normalizeDateForUi = (value) => {
+    if (!value) return value;
+    if (value instanceof Date) return value;
+    const str = String(value);
+    if (str.includes(".")) return str;
+    if (str.includes("-")) {
+      // yyyy-mm-dd or yyyy-mm-ddTHH:mm:ss...
+      const [yyyy, mm, dd] = str.split("T")[0].split("-");
+      if (yyyy && mm && dd) return `${dd}.${mm}.${yyyy}`;
+    }
+    return str;
+  };
+
   return (
     <>
-      <div>
+      <div className={styles.item_row}>
         <div className={styles.wrapper_name}>
           <div>
             <label
@@ -177,14 +168,20 @@ export default function ComponentTech({
           </div>
         </div>
 
-        {items.map((item, idx) => {
+        {visibleRows.map(({ item, idx }) => {
           return (
-            <>
-              <div className='flex relative' id={`repeatable-${idx}`} key={idx}>
+            <div key={item?.id ?? `tech-row-${idx}`}>
+              <div className='flex relative' id={`repeatable-${idx}`}>
                 <div className={styles.date_wrapper}>
                   <div className={styles.date_content}>
                     <p>Дата</p>
-                    <ComponentDateSingle idx={idx} dateForRender={item?.date} />
+                    <ComponentDateSingle
+                      idx={idx}
+                      dateForRender={
+                        normalizeDateForUi(item?.DayDataTechnicaDetails) ||
+                        item?.date
+                      }
+                    />
                   </div>
                   <div className={styles.smena_content}>
                     <p>Смена</p>
@@ -193,13 +190,13 @@ export default function ComponentTech({
                         idx={idx}
                         register={register}
                         shiftType={shiftType}
-                        day={item.day}
-                        night={item.night}
+                        day={item?.Day ?? item?.day}
+                        night={item?.Nigth ?? item?.night}
                         popupId={popupId}
                       />
                     </div>
                   </div>
-                  {data ? <DeleteDateItem id={item.id} /> : ''}
+                  {data?.length > 0 && item?.id ? <DeleteDateItem id={item.id} /> : ''}
                 </div>
               </div>
 
@@ -218,6 +215,9 @@ export default function ComponentTech({
                         label={checkbox.label}
                         checkboxId={`${checkbox.id}.${idx}`}
                         idx={idx}
+                        defaultChecked={
+                          (item?.statusTech ?? 'In working|') === checkbox.value
+                        }
                       />
                     ))}
                   </div>
@@ -238,7 +238,7 @@ export default function ComponentTech({
                   idx={idx}
                 />
               </div>
-            </>
+            </div>
           );
         })}
 

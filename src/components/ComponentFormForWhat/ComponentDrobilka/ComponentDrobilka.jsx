@@ -9,6 +9,7 @@ import {
   ComponentDateSingle,
 } from '../../../components';
 import useDataRequestStore from '../../../store/DataRequestStore';
+import { toYyyyMmDd } from '../../../utils/toYyyyMmDd';
 
 const STATUS_CHECKBOXES = [
   {
@@ -36,73 +37,32 @@ const STATUS_CHECKBOXES = [
 const DeleteDateItem = ({ id }) => {
   const { data } = useDataRequestStore();
   const userId = data[0]?.documentId;
-  const dayDataDetails = data[0]?.DayDataDetails;
+  const dayDataDetails = data[0]?.DayDataDetailsDrobilka || [];
   const url = `http://89.111.152.254:1337/api/drobilkas/${userId}`;
 
   const handleClick = async (e) => {
     e.preventDefault();
 
     if (!window.confirm('Вы точно хотите удалить рабочую смену?')) return;
+    if (!userId) return;
 
-    // Создаем копию исходных данных
-    const updatedDayDataDetails = [...dayDataDetails];
-
-    // Находим и удаляем элемент с соответствующим id
-    for (let i = 0; i < updatedDayDataDetails.length; i++) {
-      const day = updatedDayDataDetails[i];
-      // Проверяем DayInfo
-      if (day.DayInfo && day.DayInfo.id === id) {
-        // Если удаляем DayInfo, оставляем структуру с null
-        updatedDayDataDetails[i] = {
-          ...day,
-          DayInfo: null,
-          NightInfo: day.NightInfo || null,
+    const targetId = String(id);
+    const cleanedDayDataDetails = dayDataDetails
+      .filter((row) => String(row?.id) !== targetId)
+      .map((row) => {
+        const cleaned = {
+          Day: Boolean(row?.Day),
+          Night: Boolean(row?.Night),
+          statusDrobilka: row?.statusDrobilka,
+          note: row?.note,
+          DayDataDetailsTonnaj: row?.DayDataDetailsTonnaj,
+          DayDataDetailsDrobilka: row?.DayDataDetailsDrobilka,
         };
-        break;
-      }
 
-      // Проверяем NightInfo
-      if (day.NightInfo && day.NightInfo.id === id) {
-        // Если удаляем NightInfo, оставляем структуру с null
-        updatedDayDataDetails[i] = {
-          ...day,
-          DayInfo: day.DayInfo || null,
-          NightInfo: null,
-        };
-        break;
-      }
-    }
-
-    // Фильтруем полностью пустые записи (где и DayInfo и NightInfo null)
-    const cleanedDayDataDetails = updatedDayDataDetails
-      .filter((day) => day.DayInfo !== null || day.NightInfo !== null)
-      .map((day) => ({
-        DayInfo: day.DayInfo
-          ? {
-              Day: day.DayInfo.Day,
-              SmenaDetails: {
-                SmenaStatusWorker: day.DayInfo.SmenaDetails?.SmenaStatusWorker,
-                SmenaDataTonnaj: day.DayInfo.SmenaDetails?.SmenaDataTonnaj,
-                Note: day.DayInfo.SmenaDetails?.Note,
-                TC: day.DayInfo.SmenaDetails?.TC,
-                SmenaDateDetails: day.DayInfo.SmenaDetails?.SmenaDateDetails,
-              },
-            }
-          : null,
-        NightInfo: day.NightInfo
-          ? {
-              Night: day.NightInfo.Night,
-              SmenaDetails: {
-                SmenaStatusWorker:
-                  day.NightInfo.SmenaDetails?.SmenaStatusWorker,
-                SmenaDataTonnaj: day.NightInfo.SmenaDetails?.SmenaDataTonnaj,
-                Note: day.NightInfo.SmenaDetails?.Note,
-                TC: day.NightInfo.SmenaDetails?.TC,
-                SmenaDateDetails: day.NightInfo.SmenaDetails?.SmenaDateDetails,
-              },
-            }
-          : null,
-      }));
+        // вычищаем undefined, чтобы Strapi не ругался на ключи/значения
+        Object.keys(cleaned).forEach((k) => cleaned[k] === undefined && delete cleaned[k]);
+        return cleaned;
+      });
 
     try {
       const response = await fetch(url, {
@@ -111,11 +71,14 @@ const DeleteDateItem = ({ id }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          data: { DayDataDetails: cleanedDayDataDetails },
+          data: { DayDataDetailsDrobilka: cleanedDayDataDetails },
         }),
       });
 
-      if (!response.ok) throw new Error('Ошибка при обновлении компонента');
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(result?.error?.message || 'Ошибка при обновлении компонента');
+      }
 
       alert('Рабочая смена удалена');
       window.location.reload();
@@ -142,99 +105,78 @@ export default function ComponentDrobilka({
   errors,
   shiftType,
   popupId,
+  dateSearch,
 }) {
   const { data } = useDataRequestStore();
+  const pickedYmd = dateSearch ? String(dateSearch).split('T')[0] : '';
+  const withIdx = items.map((item, idx) => ({ item, idx }));
+  const visibleRows = pickedYmd
+    ? withIdx.filter(({ item }) => {
+        const raw =
+          item?.DayDataDetailsDrobilka ||
+          item?.SmenaDetails?.SmenaDateDetails;
+        return toYyyyMmDd(raw) === pickedYmd;
+      })
+    : withIdx;
+
   return (
     <>
       <div>
         <div className={styles.form_content}>
-          {/* <p className={styles.form_title_content}>Тоннаж месяц</p> */}
+          <p className={styles.form_title_content}>Тоннаж месяц</p>
           <div className={styles.wrapper_input}>
-            {/* <div>
-                            <label
-                                htmlFor="1"
-                                style={{ textAlign: 'start', fontWeight: 'medium' }}
-                            >
-                                Тоннаж выставили
-                            </label>
-                            <CustomInput
-                                data={data}
-                                errors={errors}
-                                register={register}
-                                name={'AmountData'}
-                                id={1}
-                                type="number"
-                                placeholder="Введите тн."
-                            />
-                        </div> */}
-
-            {/* <div>
-                            <label
-                                htmlFor="2"
-                                style={{ textAlign: 'start', fontWeight: 'medium' }}
-                            >
-                                Ост. Порт
-                            </label>
-                            <CustomInput
-                                data={data}
-                                errors={errors}
-                                register={register}
-                                name={'DayDataOstatkiPORT'}
-                                id={2}
-                                type="number"
-                                placeholder="Введите тн."
-                            />
-                        </div>
-
-                        <div>
-                            <label
-                                htmlFor="3"
-                                style={{ textAlign: 'start', fontWeight: 'medium' }}
-                            >
-                                Ост. ГиР
-                            </label>
-                            <CustomInput
-                                data={data}
-                                errors={errors}
-                                register={register}
-                                id={3}
-                                name={'DayDataOstatkiGIR'}
-                                type="number"
-                                placeholder="Введите тн."
-                            />
-                        </div> */}
+            <div>
+              <label
+                htmlFor="1"
+                style={{ textAlign: 'start', fontWeight: 'medium' }}
+              >
+                Тоннаж выставили
+              </label>
+              <CustomInput
+                data={data}
+                errors={errors}
+                register={register}
+                name={'AmountData'}
+                id={1}
+                type="number"
+                placeholder="Введите тн."
+              />
+            </div>
           </div>
         </div>
 
         <div className={styles.wrapper_name}>
-            <label
-              htmlFor='4'
-              style={{ textAlign: 'start', fontWeight: 'medium' }}
-              className={styles.label_name}
-            >
-              Наименование
-            </label>
-            <CustomInput
-              data={data}
-              errors={errors}
-              register={register}
-              id={4}
-              name={'Name'}
-              type='text'
-              placeholder='Введите наименование'
-            />
+          <label
+            htmlFor='4'
+            style={{ textAlign: 'start', fontWeight: 'medium' }}
+            className={styles.label_name}
+          >
+            Наименование
+          </label>
+          <CustomInput
+            data={data}
+            errors={errors}
+            register={register}
+            id={4}
+            name={'Name'}
+            type='text'
+            placeholder='Введите наименование'
+          />
         </div>
 
-        {items.map((item, idx) => {
+        {visibleRows.map(({ item, idx }) => {
           return (
-            <>
-              <div className='flex relative' id={`repeatable-${idx}`} key={idx}>
+            <div className={styles.item_row} key={item?.id ?? `drobilka-row-${idx}`}>
+              <div className='flex relative' id={`repeatable-${idx}`}>
                 <div className={styles.date_wrapper}>
                   <div className={styles.date_content}>
                     <p>Дата</p>
                     <ComponentDateSingle
                       idx={idx}
-                      dateForRender={item?.SmenaDetails?.SmenaDateDetails}
+                      dateForRender={
+                        item?.DayDataDetailsDrobilka ||
+                        item?.SmenaDetails?.SmenaDateDetails
+                      }
                     />
                   </div>
 
@@ -245,13 +187,13 @@ export default function ComponentDrobilka({
                         idx={idx}
                         register={register}
                         shiftType={shiftType}
-                        day={item.Day}
-                        night={item.Night}
+                        day={item?.Day}
+                        night={item?.Night}
                         popupId={popupId}
                       />
                     </div>
                   </div>
-                  {data ? <DeleteDateItem id={item.id} /> : ''}
+                  {data?.length > 0 && item?.id ? <DeleteDateItem id={item.id} /> : ''}
 
                 </div>
               </div>
@@ -272,6 +214,11 @@ export default function ComponentDrobilka({
                           label={checkbox.label}
                           checkboxId={`${checkbox.id}.${idx}`}
                           idx={idx}
+                          defaultChecked={
+                            ((item?.statusDrobilka ?? "In working") ||
+                              item?.SmenaDetails?.SmenaStatusWorker) ===
+                            checkbox.value
+                          }
                         />
                       );
                     })}
@@ -308,7 +255,7 @@ export default function ComponentDrobilka({
                   idx={idx}
                 />
               </div>
-            </>
+            </div>
           );
         })}
 

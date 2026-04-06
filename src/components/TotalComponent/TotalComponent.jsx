@@ -12,6 +12,17 @@ import { useParams } from "react-router-dom";
 function TotalComponent({ object, allDates }) {
   const { slug } = useParams();
 
+  const normalizeDateForCompare = (value) => {
+    if (!value) return value;
+    const str = String(value);
+    if (str.includes(".")) return str; // dd.MM.yyyy
+    if (str.includes("-")) {
+      const [yyyy, mm, dd] = str.split("T")[0].split("-");
+      if (yyyy && mm && dd) return `${dd}.${mm}.${yyyy}`;
+    }
+    return str;
+  };
+
   // количество дневных смен, когда он работал (уточнить у заказчика)
   const totalAmountDaySmena = object?.DayDataDetails?.filter((item) => {
     const smena = item?.DayInfo?.SmenaDetails;
@@ -27,13 +38,18 @@ function TotalComponent({ object, allDates }) {
   }).length;
 
   // количество дневных смен, для техники
-  const totalAmountDaySmenaTech = object?.DayDataDetails?.filter((item) => {
-    const smena = item?.DayInfo;
-    const date = smena?.date;
-    const smenaStatus = smena?.statusTech;
-
-    return smena && allDates.includes(date) && smenaStatus == "In working";
-  }).length;
+  const totalAmountDaySmenaTech = (object?.DayDataTechnicaDetails || []).filter(
+    (row) => {
+      const date = normalizeDateForCompare(row?.DayDataTechnicaDetails);
+      const status = row?.statusTech;
+      return (
+        row?.Day &&
+        date &&
+        allDates.includes(date) &&
+        status === "In working|"
+      );
+    }
+  ).length;
 
   // количество ночных смен, когда он работал (уточнить у заказчика)
   const totalAmountNightSmena = object?.DayDataDetails?.filter((item) => {
@@ -50,12 +66,17 @@ function TotalComponent({ object, allDates }) {
   }).length;
 
   // количество ночных смен, для техники
-  const totalAmountNightSmenaTech = object?.DayDataDetails?.filter((item) => {
-    const smena = item?.NightInfo;
-    const date = smena?.date;
-    const smenaStatus = smena?.statusTech;
-
-    return smena && allDates.includes(date) && smenaStatus == "In working";
+  const totalAmountNightSmenaTech = (
+    object?.DayDataTechnicaDetails || []
+  ).filter((row) => {
+    const date = normalizeDateForCompare(row?.DayDataTechnicaDetails);
+    const status = row?.statusTech;
+    return (
+      row?.Nigth &&
+      date &&
+      allDates.includes(date) &&
+      status === "In working|"
+    );
   }).length;
 
   let totalSumTonnaj = 0;
@@ -77,6 +98,14 @@ function TotalComponent({ object, allDates }) {
       const tonnaj = parseFloat(nightSmena.SmenaDataTonnaj);
       totalSumTonnaj += isNaN(tonnaj) ? 0 : tonnaj;
     }
+  });
+
+  // Дробилки: тоннаж в DayDataDetailsDrobilka / DayDataDetailsTonnaj (не DayDataDetails)
+  (object?.DayDataDetailsDrobilka || []).forEach((row) => {
+    const date = normalizeDateForCompare(row?.DayDataDetailsDrobilka);
+    if (!date || !allDates.includes(date)) return;
+    const tonnaj = parseFloat(row?.DayDataDetailsTonnaj);
+    totalSumTonnaj += isNaN(tonnaj) ? 0 : tonnaj;
   });
 
   let totalSumTonnajPlan = 0;
@@ -158,7 +187,7 @@ function TotalComponent({ object, allDates }) {
       {arr.map((item, index) => (
         <div className={styles.sum_detail} key={item.label}>
           <p>{item.label}</p>
-          <p>{Number(item.value).toLocaleString()}</p>
+          <p>{Number(item.value || 0).toLocaleString()}</p>
         </div>
       ))}
     </div>

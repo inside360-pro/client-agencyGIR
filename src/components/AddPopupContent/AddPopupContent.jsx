@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import useDataRequestStore from '../../store/DataRequestStore';
 import { useParams } from 'react-router-dom';
 
-export default function AddPopupContent({ id, active, setActive, title }) {
+export default function AddPopupContent({ id, recordId, active, setActive, title }) {
   const params = useParams();
   const slug = params.slug;
 
@@ -18,20 +18,26 @@ export default function AddPopupContent({ id, active, setActive, title }) {
     case 'object_6':
       {
         formName = 'tech';
-        apiUrl = `http://89.111.152.254:1337/api/techicas?filters[id][$eq]=${id}&populate[DayDataDetails][populate][DayInfo][populate]=*&populate[DayDataDetails][populate][NightInfo][populate]=*`;
+        apiUrl = recordId
+          ? `http://89.111.152.254:1337/api/techicas/${recordId}?populate[DayDataTechnicaDetails][populate]=*&populate[objects][populate]=*`
+          : '';
       }
       break;
     case 'object_5':
       {
         formName = 'drobilka';
-        apiUrl = `http://89.111.152.254:1337/api/drobilkas?filters[id][$eq]=${id}&populate[DayDataDetails][populate][DayInfo][populate]=*&populate[DayDataDetails][populate][NightInfo][populate]=*&populate[MonthDataTonnaj][populate]=*&populate[DayDataOstatki][populate]=*`;
+        apiUrl = recordId
+          ? `http://89.111.152.254:1337/api/drobilkas/${recordId}?populate=*`
+          : '';
       }
       break;
 
     default:
       {
         formName = 'people';
-        apiUrl = `http://89.111.152.254:1337/api/people?filters[id][$eq]=${id}&populate[DayDataDetails][populate][DayInfo][populate]=*&populate[DayDataDetails][populate][NightInfo][populate]=*&populate[MonthDataTonnaj][populate]=*&populate[DayDataOstatki][populate]=*`;
+        apiUrl = recordId
+          ? `http://89.111.152.254:1337/api/people/${recordId}?populate[DayDataDetails][populate][DayInfo][populate][SmenaDetails]=*&populate[DayDataDetails][populate][NightInfo][populate][SmenaDetails]=*&populate[Objects][populate]=*`
+          : '';
       }
       break;
   }
@@ -50,8 +56,13 @@ export default function AddPopupContent({ id, active, setActive, title }) {
     if (active) {
       const fetchAndSetData = async () => {
         try {
+          if (!apiUrl) {
+            clearData();
+            return;
+          }
+
           const data = await fetchData(apiUrl);
-          setDataRequest(data);
+          setDataRequest(Array.isArray(data) ? data : [data]);
         } catch (error) {
           console.error('Ошибка при получении данных:', error);
         }
@@ -61,7 +72,7 @@ export default function AddPopupContent({ id, active, setActive, title }) {
     } else {
       clearData();
     }
-  }, [active, setDataRequest, clearData]);
+  }, [active, apiUrl, setDataRequest, clearData]);
 
   const handleKeyDown = (event) => {
     if (event.key === 'Escape' || event.key === 'Esc') {

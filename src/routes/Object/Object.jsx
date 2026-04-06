@@ -11,7 +11,6 @@ import {
   ComponentDate,
   ComponentSearch,
   WorkerItem,
-  ComponentTonnaj,
   ObjectSelect,
 } from "../../components";
 
@@ -132,7 +131,9 @@ const Object = () => {
 
   switch (slug) {
     case "object_6": {
-      path = `?filters[slug][$eq]=${slug}&populate[techicas][populate][DayDataDetails][populate][DayInfo][populate]=*&populate[techicas][populate][DayDataDetails][populate][NightInfo][populate]=*`;
+      // У техники в Strapi нет DayDataDetails/DayInfo/NightInfo → это даёт 400.
+      // Берём безопасно всю связь techicas.
+      path = `?filters[slug][$eq]=${slug}&populate[techicas][populate]=*`;
 
       description = {
         popupTitle: "Техника",
@@ -143,7 +144,7 @@ const Object = () => {
       break;
     }
     case "object_5": {
-      path = `?filters[slug][$eq]=${slug}&populate[drobilkas][populate][DayDataDetails][populate][DayInfo][populate][SmenaDetails]=*&populate[drobilkas][populate][DayDataDetails][populate][NightInfo][populate][SmenaDetails]=*&populate[workers][populate][DayDataOstatki]=*&populate[drobilkas][populate][MonthDataTonnaj]=*`;
+      path = `?filters[slug][$eq]=${slug}&populate[drobilkas][populate]=*`;
 
       description = {
         popupTitle: "Дробилка",
@@ -153,9 +154,6 @@ const Object = () => {
       break;
     }
     default: {
-      /**
-       * TODO: тут доработать получение остальных "объектов"
-       */
       path = `?filters[slug][$eq]=${slug}&populate[workers][populate][DayDataDetails][populate][DayInfo][populate][SmenaDetails]=*&populate[workers][populate][DayDataDetails][populate][NightInfo][populate][SmenaDetails]=*&populate[workers][populate][DayDataOstatki]=*&populate[workers][populate][MonthDataTonnaj]=*`;
 
       description = {
@@ -187,6 +185,7 @@ const Object = () => {
           workersData = data[0].techicas;
         } else if (slug === "object_5") {
           workersData = data[0].drobilkas;
+
         } else {
           workersData = data[0].workers;
         }
@@ -223,15 +222,6 @@ const Object = () => {
     }
   }, [dates]);
 
-  /**
-   *
-   * TODO:
-   * сейчас при загрузке страницы грузится текущий месяц и первые 5 дней от начала месяца (допустимо)
-   * Нужно во-первых сделать так чтобы грузилась текущая дата
-   * Во-вторых, нужно подумать, как ставить название месяца, при выборе конкретного дня (Или он не будет меняться и просто менять текст ?)
-   * В третьих, при добавлении дней в dates должны отображаться дни (выбранные) с правильным месяцем (сейчас это работает но только до 5 дней, после - начинается повторение, что неверно)
-   *
-   */
 
   const addWorkers = () => {
     setWorkers([...workers, { id: workers.length + 1, name: "" }]);
@@ -350,16 +340,17 @@ const Object = () => {
         </div>
 
         {workers?.map((worker, idx) => (
+          // Для Strapi v5 корректнее использовать documentId для действий с записью.
           <WorkerItem
             key={idx}
-            id={worker.id}
+            id={worker?.documentId ?? worker.id}
             setWorkers={setWorkers}
             workers={workers}
             worker={worker}
             daysFullDate={displayedDaysFullDate}
             displayedDays={displayedDays}
-            handleClick={() => setPopupActive(worker.id)}
-            active={popupActive === worker.id}
+            handleClick={() => setPopupActive(worker?.documentId ?? worker.id)}
+            active={popupActive === (worker?.documentId ?? worker.id)}
             setActive={setPopupActive}
             title={description.popupTitle}
             forWhat={description.popupTitle}
@@ -375,21 +366,21 @@ const Object = () => {
         </div>
         {isMobile && (
           <div className={styles.pagination_wrapper}>
-              <button
-                onClick={handlePrevious}
-                disabled={currentPage === 1}
-                className={styles.button}
-              >
-                <img src="/next-mobile-left.svg" alt="previous" />
-              </button>
+            <button
+              onClick={handlePrevious}
+              disabled={currentPage === 1}
+              className={styles.button}
+            >
+              <img src="/next-mobile-left.svg" alt="previous" />
+            </button>
 
-              <button
-                onClick={handleNext}
-                disabled={currentPage === totalPages}
-                className={styles.button}
-              >
-                <img src="/next-mobile-right.svg" alt="next" />
-              </button>
+            <button
+              onClick={handleNext}
+              disabled={currentPage === totalPages}
+              className={styles.button}
+            >
+              <img src="/next-mobile-right.svg" alt="next" />
+            </button>
           </div>
         )}
       </div>

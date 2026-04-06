@@ -63,3 +63,27 @@
   }
 }
 
+.date_search_wrapper {
+  display: flex;
+  gap: 10px;
+}
+
+.date_search_button {
+  cursor: pointer;
+}
+
+.date_input {
+  padding: 10px;
+  border: 1px solid var(--another-gray);
+  border-radius: 5px;
+  outline: none;
+  cursor: pointer;
+
+  &:focus {
+    border: 1px solid var(--main);
+  }
+}
+
+.date_input::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}

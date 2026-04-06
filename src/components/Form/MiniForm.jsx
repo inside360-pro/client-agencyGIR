@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
-import { v4 as uuidv4 } from 'uuid';
+import PropTypes from 'prop-types';
 import styles from './style.module.scss';
 import { updateDataTonnajService } from '../../services/update-object-service';
 import useDataObjectRequestStore from '../../store/DataObjectRequestStore';
@@ -14,16 +14,19 @@ import {
     ComponentTonnajMini,
     ModalNotification,
 } from '../../components';
-import { useParams } from 'react-router-dom';
 
 
 export async function checkExistingRecord(uuid, url) {
+    if (!uuid) return null;
 
     try {
-        const response = await fetch(`${url}?filters[uuid][$eq]=${uuid}`);
-        const result = await response.json();
-        // Для Strapi структура ответа: { data: [...] }
-        return result.data?.length > 0 ? result.data[0]?.documentId : null;
+        const response = await fetch(`${url}?filters[uuid][$eq]=${encodeURIComponent(String(uuid))}`);
+        const result = await response.json().catch(() => null);
+        if (!response.ok) {
+            console.error('Ошибка при проверке записи:', result?.error || result);
+            return null;
+        }
+        return result?.data?.length > 0 ? result.data[0]?.documentId : null;
     } catch (error) {
         console.error('Ошибка:', error);
         return null;
@@ -39,23 +42,28 @@ export async function saveUserDateService(userData, url) {
         body: JSON.stringify({ data: { ...userData } }),
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+        const message = data?.error?.message || `HTTP error! Status: ${response.status}`;
+        throw new Error(message);
+    }
     return { response, data };
 }
 
-export default function MiniForm({ title, forWhat, setActive, popupId }) {
+export default function MiniForm() {
 
-    const [error, setError] = useState();
+    const [, setError] = useState();
     const [formValues, setFormValues] = useState({});
     const [isSending, setIsSending] = useState(false);
     const { dataObject } = useDataObjectRequestStore();
     const [modalNotification, setModalNotification] = useState(false);
     const [modalNotificationText, setModalNotificationText] = useState(false);
+    const [modalNotificationVariant, setModalNotificationVariant] = useState('info');
 
 
     // let currentMonthYear = format(new Date(), 'MM.yyyy', { locale: ru });
 
-    const { register, control, handleSubmit, formState: { errors, isSubmitting, isSubmitSuccessful }, reset, setValue } = useForm();
+    const { register, control, handleSubmit, formState: { errors }, reset } = useForm();
 
     // Правильное определение формата
 
@@ -103,6 +111,9 @@ export default function MiniForm({ title, forWhat, setActive, popupId }) {
     const onSubmit = async () => {
         setIsSending(true);
         setError(null);
+        setModalNotification(true);
+        setModalNotificationText("Отправка...");
+        setModalNotificationVariant('loading');
         let formData = {};
         let url = '';
         try {
@@ -113,9 +124,13 @@ export default function MiniForm({ title, forWhat, setActive, popupId }) {
                 MonthDataObjectTonnaj: [
                     // 1. Удаляем записи ТОЛЬКО текущего месяца
                     ...(formValues.MonthDataObjectTonnaj?.filter(item => {
-                        const [day, month, year] = item.MonthDataObject.split('.');
+                        const [, month, year] = item.MonthDataObject.split('.');
                         return `${month}.${year}` !== currentMonthYear;
-                    }).map(({ id, ...rest }) => rest) || []),
+                    }).map((item) => {
+                        const rest = { ...item };
+                        delete rest.id;
+                        return rest;
+                    }) || []),
 
                     ...(amountDataObject !== "0" ? [{
                         MonthDataObject: format(new Date(), 'dd.MM.yyyy', { locale: ru }),
@@ -147,6 +162,7 @@ export default function MiniForm({ title, forWhat, setActive, popupId }) {
                     if (response.status === 200) {
                         setModalNotification(true); 
                         setModalNotificationText('Форма отправлена ✅ Данные обновлены');
+                        setModalNotificationVariant('success');
                         reset();
                     }
                     console.log('Данные обновлены:', formData);
@@ -154,17 +170,24 @@ export default function MiniForm({ title, forWhat, setActive, popupId }) {
                 } else {
                     setModalNotification(true); 
                     setModalNotificationText('Форма отправлена ✅ Создана новая сущность');
+                    setModalNotificationVariant('success');
                     response = await saveUserDateService(formData, url);
                     console.log('Новая запись создана:', response, formData);
                 }
 
             } catch (error) {
-                setError('Ошибка запроса, попробуйте позже', error);
+                setModalNotification(true);
+                setModalNotificationText(String(error?.message || 'Ошибка запроса, попробуйте позже'));
+                setModalNotificationVariant('error');
             } finally {
                 setIsSending(false);
             }
         } catch (error) {
             console.log(error)
+            setModalNotification(true);
+            setModalNotificationText(String(error?.message || 'Ошибка запроса, попробуйте позже'));
+            setModalNotificationVariant('error');
+            setIsSending(false);
         }
     }
         
@@ -194,7 +217,20 @@ export default function MiniForm({ title, forWhat, setActive, popupId }) {
                 </div>
             </form>
             
-            <ModalNotification active={modalNotification} text={modalNotificationText} /> 
+            <ModalNotification
+                active={modalNotification}
+                text={modalNotificationText}
+                variant={modalNotificationVariant}
+                durationMs={isSending ? 0 : 3000}
+                onClose={() => setModalNotification(false)}
+            /> 
         </>
     )
 }
+
+MiniForm.propTypes = {
+    title: PropTypes.string,
+    forWhat: PropTypes.string,
+    setActive: PropTypes.func,
+    popupId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+};

@@ -26,9 +26,9 @@ export default function ComponentDate({ dateForRender = "", idx = "" }) {
 
     if (initialDate && !isNaN(initialDate.getTime())) {
       setSelectedDates(initialDate);
-      addDate(initialDate);
+      addDate(idx, initialDate);
     }
-  }, [dateForRender]);
+  }, [dateForRender, idx, addDate]);
 
   const handleDateChange = (date) => {
     setSelectedDates(date);

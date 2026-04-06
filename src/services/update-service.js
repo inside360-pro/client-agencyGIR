@@ -8,7 +8,7 @@ export const updateUserDateService = async (recordId, data, url) => {
             body: JSON.stringify({ data }),
         });
 
-        const responseData = await response.json();
+        const responseData = await response.json().catch(() => null);
         
         return {
             status: response.status,
@@ -16,7 +16,6 @@ export const updateUserDateService = async (recordId, data, url) => {
         };
         
     } catch (error) {
-        console.error('asdfasdfasdf')
         throw new Error(`Update failed: ${error.message}`);
     }
 };

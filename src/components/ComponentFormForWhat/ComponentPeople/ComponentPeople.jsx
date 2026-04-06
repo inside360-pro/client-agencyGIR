@@ -1,6 +1,7 @@
 import styles from './style.module.scss';
 import deleteSVG from '/delete.svg';
 import useMobile from '../../../hooks/useMobile';
+import { Fragment } from 'react';
 
 import {
   CustomInput,
@@ -12,6 +13,7 @@ import {
 import useDataRequestStore from '../../../store/DataRequestStore';
 
 import { STATUS_CHECKBOXES } from '../../../data.json';
+import { toYyyyMmDd } from '../../../utils/toYyyyMmDd';
 
 const DeleteDateItem = ({ id }) => {
   const { data } = useDataRequestStore();
@@ -59,28 +61,28 @@ const DeleteDateItem = ({ id }) => {
       .map((day) => ({
         DayInfo: day.DayInfo
           ? {
-              Day: day.DayInfo.Day,
-              SmenaDetails: {
-                SmenaStatusWorker: day.DayInfo.SmenaDetails?.SmenaStatusWorker,
-                SmenaDataTonnaj: day.DayInfo.SmenaDetails?.SmenaDataTonnaj,
-                Note: day.DayInfo.SmenaDetails?.Note,
-                TC: day.DayInfo.SmenaDetails?.TC,
-                SmenaDateDetails: day.DayInfo.SmenaDetails?.SmenaDateDetails,
-              },
-            }
+            Day: day.DayInfo.Day,
+            SmenaDetails: {
+              SmenaStatusWorker: day.DayInfo.SmenaDetails?.SmenaStatusWorker,
+              SmenaDataTonnaj: day.DayInfo.SmenaDetails?.SmenaDataTonnaj,
+              Note: day.DayInfo.SmenaDetails?.Note,
+              TC: day.DayInfo.SmenaDetails?.TC,
+              SmenaDateDetails: day.DayInfo.SmenaDetails?.SmenaDateDetails,
+            },
+          }
           : null,
         NightInfo: day.NightInfo
           ? {
-              Night: day.NightInfo.Night,
-              SmenaDetails: {
-                SmenaStatusWorker:
-                  day.NightInfo.SmenaDetails?.SmenaStatusWorker,
-                SmenaDataTonnaj: day.NightInfo.SmenaDetails?.SmenaDataTonnaj,
-                Note: day.NightInfo.SmenaDetails?.Note,
-                TC: day.NightInfo.SmenaDetails?.TC,
-                SmenaDateDetails: day.NightInfo.SmenaDetails?.SmenaDateDetails,
-              },
-            }
+            Night: day.NightInfo.Night,
+            SmenaDetails: {
+              SmenaStatusWorker:
+                day.NightInfo.SmenaDetails?.SmenaStatusWorker,
+              SmenaDataTonnaj: day.NightInfo.SmenaDetails?.SmenaDataTonnaj,
+              Note: day.NightInfo.SmenaDetails?.Note,
+              TC: day.NightInfo.SmenaDetails?.TC,
+              SmenaDateDetails: day.NightInfo.SmenaDetails?.SmenaDateDetails,
+            },
+          }
           : null,
       }));
 
@@ -122,70 +124,79 @@ export default function ComponentPeople({
   errors,
   shiftType,
   popupId,
+  dateSearch,
 }) {
   const { data } = useDataRequestStore();
   const isMobile = useMobile();
 
+  const pickedYmd = dateSearch ? String(dateSearch).split('T')[0] : '';
+  const withIdx = items.map((item, idx) => ({ item, idx }));
+  const visibleRows = pickedYmd
+    ? withIdx.filter(({ item }) => {
+      const key = toYyyyMmDd(item?.SmenaDetails?.SmenaDateDetails);
+      return key === pickedYmd;
+    })
+    : withIdx;
 
   return (
     <>
       <div>
         <div className={styles.form_content}>
-          {/* <p className={styles.form_title_content}>Тоннаж месяц</p> */}
+          <p className={styles.form_title_content}>Тоннаж месяц</p>
           <div className={styles.wrapper_input}>
-            {/* <div>
-                            <label
-                                htmlFor="1"
-                                style={{ textAlign: 'start', fontWeight: 'medium' }}
-                            >
-                                Тоннаж выставили
-                            </label>
-                            <CustomInput
-                                data={data}
-                                errors={errors}
-                                register={register}
-                                name={'AmountData'}
-                                id={1}
-                                type="number"
-                                placeholder="Введите тн."
-                            />
-                        </div> */}
+            <div>
+              <label
+                htmlFor="1"
+                style={{ textAlign: 'start', fontWeight: 'medium' }}
+              >
+                Тоннаж выставили
+              </label>
+              <CustomInput
+                data={data}
+                errors={errors}
+                register={register}
+                name={'AmountData'}
+                id={1}
+                type="number"
+                placeholder="Введите тн."
+              />
+            </div>
 
-            {/* <div>
-                            <label
-                                htmlFor="2"
-                                style={{ textAlign: 'start', fontWeight: 'medium' }}
-                            >
-                                Ост. Порт
-                            </label>
-                            <CustomInput
-                                data={data}
-                                errors={errors}
-                                register={register}
-                                name={'DayDataOstatkiPORT'}
-                                id={2}
-                                type="number"
-                                placeholder="Введите тн."
-                            />
-                        </div>
+            <div>
+              <label
+                htmlFor="2"
+                style={{ textAlign: 'start', fontWeight: 'medium' }}
+              >
+                Ост. Порт
+              </label>
+              <CustomInput
+                data={data}
+                errors={errors}
+                register={register}
+                name={'DayDataOstatkiPORT'}
+                id={2}
+                type="number"
+                placeholder="Введите тн."
+              />
+            </div>
 
-                        <div>
-                            <label
-                                htmlFor="3"
-                                style={{ textAlign: 'start', fontWeight: 'medium' }}
-                            >
-                                Ост. ГиР
-                            </label>
-                            <CustomInput
-                                data={data}
-                                errors={errors}
-                                register={register}
-                                id={3}
-                                name={'DayDataOstatkiGIR'}
-                                type="number"
-                                placeholder="Введите тн."
-                            />
-                        </div> */}
+            <div>
+              <label
+                htmlFor="3"
+                style={{ textAlign: 'start', fontWeight: 'medium' }}
+              >
+                Ост. ГиР
+              </label>
+              <CustomInput
+                data={data}
+                errors={errors}
+                register={register}
+                id={3}
+                name={'DayDataOstatkiGIR'}
+                type="number"
+                placeholder="Введите тн."
+              />
+            </div>
           </div>
         </div>
 
@@ -229,10 +240,10 @@ export default function ComponentPeople({
           </div>
         </div>
 
-        {items.map((item, idx) => {
+        {visibleRows.map(({ item, idx }) => {
           return (
-            <>
-              <div className='flex relative' id={`repeatable-${idx}`} key={idx}>
+            <Fragment key={item?.id ?? idx}>
+              <div className='flex relative' id={`repeatable-${idx}`}>
                 <div className={styles.date_wrapper}>
                   <div className={styles.date_content}>
                     <p>Дата</p>
@@ -274,6 +285,13 @@ export default function ComponentPeople({
                         label={checkbox.label}
                         checkboxId={`${checkbox.id}.${idx}`}
                         idx={idx}
+                        defaultChecked={
+                          ((item?.SmenaDetails?.SmenaStatusWorker || "Default") ===
+                            "Default"
+                            ? "Worked"
+                            : item?.SmenaDetails?.SmenaStatusWorker) ===
+                          checkbox.value
+                        }
                       />
                     ))}
                   </div>
@@ -326,7 +344,7 @@ export default function ComponentPeople({
                   idx={idx}
                 />
               </div>
-            </>
+            </Fragment>
           );
         })}
 

@@ -34,7 +34,7 @@ export default function CustomRadio({
                 id={checkboxId}
                 value={value}
                 hidden={hidden}
-                // defaultChecked={isChecked} 
+                defaultChecked={defaultChecked}
                 {...(
                     typeof idx !== 'undefined' 
                         ? register(name, {

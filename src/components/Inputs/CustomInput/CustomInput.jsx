@@ -97,10 +97,10 @@ export default function CustomInput({
         return tc;
 
       case 'DayDataTonnaj':
-        return smenaDataTonnaj;
+        return item?.DayDataDetailsTonnaj ?? smenaDataTonnaj;
 
       case 'note':
-        return note;
+        return item?.note ?? note;
       
       case 'order':
         return order;

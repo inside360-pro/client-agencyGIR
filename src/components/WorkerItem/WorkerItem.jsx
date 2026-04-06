@@ -81,11 +81,11 @@ const WorkerDetails = ({
     let status;
     switch (slug) {
       case "object_6":
-        status = shift?.statusTech;
+        status = shift?.statusTech ?? "In working|";
         break;
 
       case "object_5":
-        status = shift.SmenaDetails?.SmenaStatusWorker;
+        status = shift?.statusDrobilka ?? "In working";
         break;
 
       default: {
@@ -101,6 +101,7 @@ const WorkerDetails = ({
       "Day Off": { text: "Выходной", className: "dayOf" },
       Empty: { text: "", className: "" },
       "In working": { text: "В работе", className: "inworking" },
+      "In working|": { text: "В работе", className: "inworking" },
       "Repair/to": { text: "Ремонт/ТО", className: "repair" },
       "No Coal (OC)": { text: "Отсутствие угля (О/У)", className: "noCoal" },
       Stock: { text: "Запас", className: "stock" },
@@ -117,7 +118,9 @@ const WorkerDetails = ({
         {/* <p>Дата: {shift.SmenaDetails?.SmenaDateDetails}</p> */}
         <p className={styles.details_static}>Тоннаж</p>
         <p className={`${styles.details_nostatic} working`}>
-          {shift.SmenaDetails.SmenaDataTonnaj || "Данные отсутствуют"}
+          {slug === "object_5"
+            ? shift?.DayDataDetailsTonnaj || "Данные отсутствуют"
+            : shift?.SmenaDetails?.SmenaDataTonnaj || "Данные отсутствуют"}
         </p>
         {shift?.SmenaDetails?.TC && forWhat === "Сотрудник" && (
           <>
@@ -139,6 +142,99 @@ const WorkerDetails = ({
     const handleNoteClick = (id) => {
       setActiveNote(id);
     };
+
+    if (slug === "object_5") {
+      const rows = worker?.DayDataDetailsDrobilka || [];
+      const parseDay = (s) => parseInt(String(s || "").split(".")[0] || "", 10);
+      const dayRow = rows.find(
+        (r) => r?.Day && parseDay(r?.DayDataDetailsDrobilka) === date
+      );
+      const nightRow = rows.find(
+        (r) => r?.Night && parseDay(r?.DayDataDetailsDrobilka) === date
+      );
+
+      return (
+        <div className={styles.item_table} key={date}>
+          <div className={styles.item_data}>
+            <div className={styles.detail}>{renderShift(dayRow, "", forWhat)}</div>
+            <CheckNoteBtn handleClick={() => handleNoteClick(dayRow?.id)} />
+            <NoteBody
+              id={dayRow?.id}
+              active={activeNote === dayRow?.id}
+              setActive={setActiveNote}
+              worker={worker}
+              data={dayRow}
+            />
+          </div>
+
+          <div className="border_top_gray"></div>
+
+          <div className={styles.item_data}>
+            <div className={styles.detail}>
+              {renderShift(nightRow, "", forWhat)}
+            </div>
+            <CheckNoteBtn handleClick={() => handleNoteClick(nightRow?.id)} />
+            <NoteBody
+              id={nightRow?.id}
+              active={activeNote === nightRow?.id}
+              setActive={setActiveNote}
+              worker={worker}
+              data={nightRow}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    if (slug === "object_6") {
+      const rows = worker?.DayDataTechnicaDetails || [];
+      const parseDay = (s) => {
+        const str = String(s || "");
+        if (!str) return NaN;
+        if (str.includes(".")) return parseInt(str.split(".")[0] || "", 10);
+        if (str.includes("-")) return parseInt(str.split("-")[2] || "", 10);
+        return NaN;
+      };
+
+      const dayRow = rows.find(
+        (r) => r?.Day && parseDay(r?.DayDataTechnicaDetails) === date
+      );
+      const nightRow = rows.find(
+        (r) => r?.Nigth && parseDay(r?.DayDataTechnicaDetails) === date
+      );
+
+      return (
+        <div className={styles.item_table} key={date}>
+          <div className={styles.item_data}>
+            <div className={styles.detail}>{renderShift(dayRow, "", forWhat)}</div>
+            <CheckNoteBtn handleClick={() => handleNoteClick(dayRow?.id)} />
+            <NoteBody
+              id={dayRow?.id}
+              active={activeNote === dayRow?.id}
+              setActive={setActiveNote}
+              worker={worker}
+              data={dayRow}
+            />
+          </div>
+
+          <div className="border_top_gray"></div>
+
+          <div className={styles.item_data}>
+            <div className={styles.detail}>
+              {renderShift(nightRow, "", forWhat)}
+            </div>
+            <CheckNoteBtn handleClick={() => handleNoteClick(nightRow?.id)} />
+            <NoteBody
+              id={nightRow?.id}
+              active={activeNote === nightRow?.id}
+              setActive={setActiveNote}
+              worker={worker}
+              data={nightRow}
+            />
+          </div>
+        </div>
+      );
+    }
 
     const dayData = worker?.DayDataDetails?.find((d) => {
       let dayDate;
@@ -250,29 +346,58 @@ export default function WorkerItem({
   handleClick,
   forWhat,
 }) {
+  const { slug } = useParams();
   // Все даты месяца
   const allDates = daysFullDate;
 
-  const workerDates =
-    worker?.DayDataDetails?.reduce((acc, item) => {
-      // Добавляем дату дневной смены, если есть
-      if (item?.DayInfo?.SmenaDetails?.SmenaDateDetails) {
-        acc.push(item?.DayInfo?.SmenaDetails.SmenaDateDetails);
-      } else {
-        acc.push(item?.DayInfo?.date);
-      }
+  const workerDates = (() => {
+    if (slug === "object_5") {
+      return (worker?.DayDataDetailsDrobilka || [])
+        .map((r) => r?.DayDataDetailsDrobilka)
+        .filter(
+          (date, index, self) => date !== undefined && self.indexOf(date) === index
+        );
+    }
 
-      // Добавляем дату ночной смены, если есть
-      if (item?.NightInfo?.SmenaDetails?.SmenaDateDetails) {
-        acc.push(item.NightInfo.SmenaDetails.SmenaDateDetails);
-      } else {
-        acc.push(item?.NightInfo?.date);
-      }
+    if (slug === "object_6") {
+      const normalize = (value) => {
+        if (!value) return value;
+        const str = String(value);
+        if (str.includes(".")) return str; // dd.MM.yyyy
+        if (str.includes("-")) {
+          const [yyyy, mm, dd] = str.split("T")[0].split("-");
+          if (yyyy && mm && dd) return `${dd}.${mm}.${yyyy}`;
+        }
+        return str;
+      };
 
-      return acc;
-    }, [])?.filter(
-      (date, index, self) => date !== undefined && self.indexOf(date) === index
-    ) || [];
+      return (worker?.DayDataTechnicaDetails || [])
+        .map((r) => normalize(r?.DayDataTechnicaDetails))
+        .filter(
+          (date, index, self) => date !== undefined && self.indexOf(date) === index
+        );
+    }
+
+    return (
+      worker?.DayDataDetails?.reduce((acc, item) => {
+        if (item?.DayInfo?.SmenaDetails?.SmenaDateDetails) {
+          acc.push(item?.DayInfo?.SmenaDetails.SmenaDateDetails);
+        } else {
+          acc.push(item?.DayInfo?.date);
+        }
+
+        if (item?.NightInfo?.SmenaDetails?.SmenaDateDetails) {
+          acc.push(item.NightInfo.SmenaDetails.SmenaDateDetails);
+        } else {
+          acc.push(item?.NightInfo?.date);
+        }
+
+        return acc;
+      }, [])?.filter(
+        (date, index, self) => date !== undefined && self.indexOf(date) === index
+      ) || []
+    );
+  })();
 
   // Даты, которые есть в workerDates, но отсутствуют в allDates
   const missingDates = allDates?.filter((date) => !workerDates?.includes(date));
@@ -319,6 +444,7 @@ export default function WorkerItem({
 
       <AddPopupContent
         id={id}
+        recordId={worker?.documentId}
         active={active}
         setActive={setActive}
         title={title}
